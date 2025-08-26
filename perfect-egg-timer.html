@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Perfect Egg Timer</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #fafafa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      text-align: center;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    .container {
+      max-width: 400px;
+      width: 100%;
+      background: white;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+    input[type=range] {
+      width: 100%;
+      margin: 1rem 0;
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin: 0.5rem 0;
+      padding: 1rem;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 1rem;
+      background: #ffcc00;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #ffdb4d;
+    }
+    #timer {
+      font-size: 2rem;
+      margin-top: 1.5rem;
+    }
+    #yolk-label {
+      margin-top: 1rem;
+      font-weight: 600;
+    }
+    .egg-illustration {
+      margin: 1.5rem auto;
+      width: 120px;
+      height: 160px;
+      background: #fff;
+      border: 4px solid #ddd;
+      border-radius: 50% 50% 47% 53% / 60% 60% 40% 40%;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.5s ease;
+    }
+    .egg-illustration.crack {
+      animation: crack 0.6s ease forwards;
+    }
+    @keyframes crack {
+      0% { transform: rotate(0deg) scale(1); border-color: #ddd; }
+      30% { transform: rotate(-5deg) scale(1.05); border-color: #ff6666; }
+      60% { transform: rotate(5deg) scale(0.95); border-color: #ff3333; }
+      100% { transform: rotate(0deg) scale(1); border-color: #ff0000; }
+    }
+    .yolk {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60px;
+      height: 60px;
+      background: #ffcc00;
+      border-radius: 50%;
+      transition: all 0.3s ease;
+    }
+    @keyframes wobble {
+      0% { transform: translate(-50%, -50%) scale(1); }
+      25% { transform: translate(-50%, -50%) scale(1.05, 0.95); }
+      50% { transform: translate(-50%, -50%) scale(0.95, 1.05); }
+      75% { transform: translate(-50%, -50%) scale(1.02, 0.98); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
+    .wobble {
+      animation: wobble 1.5s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🥚 Perfect Egg Timer</h1>
+    <div class="egg-illustration" id="egg-shell">
+      <div class="yolk" id="yolk"></div>
+    </div>
+    <label for="yolkRange">How runny? (Soft → Hard)</label>
+    <input type="range" id="yolkRange" min="4" max="9" step="1" value="6">
+    <div id="yolk-label">Medium (6 min)</div>
+    <button onclick="startTimerFromSlider()">Start Timer</button>
+    <div id="timer">00:00</div>
+  </div>
+
+  <audio id="alarm" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
+  <script>
+    let countdown;
+    const yolkRange = document.getElementById('yolkRange');
+    const yolkLabel = document.getElementById('yolk-label');
+    const yolk = document.getElementById('yolk');
+    const eggShell = document.getElementById('egg-shell');
+
+    yolkRange.addEventListener('input', () => {
+      const value = parseInt(yolkRange.value);
+      let text;
+      if (value <= 4) text = `Soft (${value} min)`;
+      else if (value >= 9) text = `Hard (${value} min)`;
+      else text = `Medium (${value} min)`;
+      yolkLabel.textContent = text;
+
+      // Adjust yolk appearance
+      const size = 70 - (value - 4) * 6; // smaller yolk as it hardens
+      const color = `hsl(45, 100%, ${50 + (value - 4) * 7}%)`; // lighter color when harder
+      yolk.style.width = `${size}px`;
+      yolk.style.height = `${size}px`;
+      yolk.style.background = color;
+
+      // Add wobble for soft eggs
+      if (value <= 5) {
+        yolk.classList.add('wobble');
+      } else {
+        yolk.classList.remove('wobble');
+      }
+    });
+
+    function startTimerFromSlider() {
+      const minutes = parseInt(yolkRange.value);
+      startTimer(minutes * 60);
+    }
+
+    function startTimer(seconds) {
+      clearInterval(countdown);
+      eggShell.classList.remove('crack');
+      const end = Date.now() + seconds * 1000;
+      displayTimeLeft(seconds);
+      countdown = setInterval(() => {
+        const secondsLeft = Math.round((end - Date.now()) / 1000);
+        if (secondsLeft < 0) {
+          clearInterval(countdown);
+          document.getElementById('alarm').play();
+          if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
+          eggShell.classList.add('crack');
+          return;
+        }
+        displayTimeLeft(secondsLeft);
+      }, 1000);
+    }
+
+    function displayTimeLeft(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remainderSeconds = seconds % 60;
+      const display = `${minutes}:${remainderSeconds < 10 ? '0' : ''}${remainderSeconds}`;
+      document.getElementById('timer').textContent = display;
+    }
+
+    // Initialize yolk illustration
+    yolkRange.dispatchEvent(new Event('input'));
+  </script>
+</body>
+</html>
